@@ -1,6 +1,10 @@
 # -*- Perl -*-
 #
-# Slide rule support for Perl. *** BETA interface, may change ***
+# Slide rule support for Perl. Mostly as Perl and slide rule practice for the
+# author, but might be handy to simulate values someone using a slide rule
+# would come up with? I dunno.
+#
+# *** BETA interface, may change ***
 
 package Math::SlideRule;
 
@@ -8,65 +12,118 @@ use 5.010000;
 use strict;
 use warnings;
 
-# TODO
-#use Carp qw/croak/;
+use Carp qw/croak/;
 use Scalar::Util qw/looks_like_number/;
 
 use Moo;
 use namespace::clean;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-# TODO these resolutions specific to my pocket slide rule, should not be in
-# main module (maths lifted from Math::Round::Var)
+########################################################################
+#
+# SKETCHY INTERNAL JUNK DO NOT USE LOOK I WARNED YOU
+
+# Bounds check for numeric input (limits might come from ->new if there be
+# slide rules that have larger ranges, but I suspect they might instead try to
+# pack in more resolution over the 1..10 space). In particular, some of the
+# logic below conflates these with order-of-magnitude changes.
+my $SR_MIN = 1;
+my $SR_MAX = 10;
+
+# Makes a number positive and within the ruler bounds, returns normalized
+# number and the exponent of the offset the original was from the bounds.
+# (I hope you're handling the negatives somewhere else!)
+sub _normalize {
+  my $val = abs(shift);
+  my $exp = 0;
+  if ( $val < $SR_MIN ) {
+    # TODO better way? how does sprintf "%e" figure out the sci notation?
+    while ( $val < $SR_MIN ) {
+      $val *= 10;
+      $exp--;
+    }
+  } elsif ( $val > $SR_MAX ) {
+    while ( $val > $SR_MAX ) {
+      $val /= 10;
+      $exp++;
+    }
+  }
+  return $val, $exp;
+}
+
+# TODO these resolutions are specific to my pocket slide rule, so really
+# should not be in the main module. Additional work might be to randomize
+# things "a little" for when the human is guessing between the lines, but
+# that's more work.
 sub _round {
+  # check input only here as with isa would need to make is-number check both
+  # here and over in the isa.
+  die "input value must be number $SR_MIN <= n <= $SR_MAX"
+    if !looks_like_number( $_[0] )
+    or $_[0] < $SR_MIN,
+    or $_[0] > $SR_MAX;
+
   if ( $_[0] < 3 ) {
-    # 1.01 at best, though only marks at the 1.0[2468] points
+    # e.g. 1.01 at best, though marks only at .02, .04, .06, ...
     return sprintf "%.2f", $_[0];
   }
 
   if ( $_[0] < 5 ) {
-    # 4.025 at best, marks at .05, .10, .15, ...
-    return sprintf( "%.2f", $_[0] / 0.025 ) * 0.025;
+    # e.g. 4.025 at best, marks at .05, .10, .15, ...
+    # maths (now better) lifted from Math::Round::Var
+    return sprintf( "%0.0f", $_[0] / 0.025 ) * 0.025;
   }
 
-  # 9.05 at best, marks at .1, .2, .3, ...
-  return sprintf( "%.2f", $_[0] / 0.05 ) * 0.05;
+  # e.g. 9.05 at best, marks at .10, .20, .30, ...
+  return sprintf( "%0.0f", $_[0] / 0.05 ) * 0.05;
 }
+
+########################################################################
+#
+# ATTRIBUTES
 
 has C => (
   clearer => 1,
   coerce  => \&_round,
   is      => 'rw',
-  isa     => sub {
-    die "input value must be number >=1 and <=10\n"
-      if !looks_like_number( $_[0] )
-      or $_[0] < 1
-      or $_[0] > 10;
-  },
 );
 
 has D => (
   clearer => 1,
   coerce  => \&_round,
   is      => 'rw',
-  isa     => sub {
-    die "input values must be numbers >=1 and <=10"
-      if !looks_like_number( $_[0] )
-      or $_[0] < 1
-      or $_[0] > 10;
-  },
 );
 
-# TODO awkward method name (or write multiply() that keeps track of digits,
-# sets C, D, etc.
-sub look_C_D {
+########################################################################
+#
+# METHODS
+
+sub multiply {
   my $self = shift;
+  my ( $n1, $n2 ) = @_;
+  croak "need two numbers"
+    if !looks_like_number($n1)
+    or !looks_like_number($n2);
 
-  die "C not set\n" unless $self->C;
-  die "D not set\n" unless $self->D;
+  my $is_negative = ( ( $n1 < 0 and $n2 >= 0 ) or ( $n1 >= 0 and $n2 < 0 ) );
+  ( $n1, my $n1_exp ) = _normalize($n1);
+  ( $n2, my $n2_exp ) = _normalize($n2);
 
-  return $self->C * $self->D;
+  # cheat and just multiply (these attributes round the values)
+  my $val = $self->C($n1) * $self->D($n2);
+
+  # order of magnitude change, adjust back to bounds
+  if ( $val > $SR_MAX ) {
+    $val /= 10;
+    $n1_exp++;
+  }
+  # read off value from slide (must be rounded) and figure out where the
+  # decimal goes
+  $val = _round($val) * 10**( $n1_exp + $n2_exp );
+
+  $val *= -1 if $is_negative;
+  return $val;
 }
 
 1;
@@ -84,24 +141,35 @@ Math::SlideRule - slide rule support for Perl
 
     my $sr = Math::SlideRule->new();
 
-    # multiply 15 by 3.7
-    $sr->C(1.5);      # whoops, must shift 15 to be 1 <= n <= 10
+    # set where the slide rule is (these don't do much)
+    $sr->C(1.5);
     $sr->D(3.7);
-    $sr->look_C_D();  # 5.55 (really 55.5 but thems the breaks)
+
+    # sets ->C, ->D, multiplies, handles tricky decimals, etc.
+    $sr->multiply(1.5, 3.7);
 
 =head1 DESCRIPTION
 
-Slide rule support for Perl, based in particular on the capabilities of a
+Slide rule support for Perl, based in particular on the capabilities of my
 Pickett Model N 3P-ES pocket slide rule. As such, the abbreviated rule names
-(short letter names) are retained for the values those can be set to on the
-slide rule. Numeric values are rounded, though this should really only be done
-in subclasses specific to a particular length of slide rule.
+(short letter names) are retained for the values that can be set to on the
+software slide rule. Numeric values are rounded as necessary, though this
+should really only be done in a subclass specific to a particular length of
+slide rule (patches welcome for 10" or 20" slide rule number resolutions).
 
-TODO left-index vs. right-index lookups, or would that be too annoying?
+Certain slide rule realities are skipped, such as left versus right sliding
+based on whether the result stays within the same order of magnitude: C<1.1 *
+2.5> and C<4.1 * 3.7> require opposite sliding directions to compute, and the
+decimal must be managed for one.
+
+=head1 ATTRIBUTES
+
+C<C>, C<D>, and C<clear_*> to hold values for particular slide rule lookups, or
+to clear such. Largely irrelevant?
 
 =head1 METHODS
 
-C, D, look_C_D, and clear_{C,D} with presumably more to come.
+C<multiply> requires two numbers, multipies them, returns result.
 
 =head1 BUGS
 

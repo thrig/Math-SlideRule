@@ -14,9 +14,10 @@ my %params = (
   LICENSE            => 'Artistic_2_0',
   PL_FILES           => {},
   CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
-  BUILD_REQUIRES     => { 'Test::More' => 0, },
-  dist               => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-  clean => { FILES => 'Math-SlideRule-*' },
+  BUILD_REQUIRES     => { 'Test::Exception' => 0, 'Test::More' => 0, },
+  PREREQ_PM          => { 'Carp' => 0, 'Moo' => 0, 'Scalar::Util' => 0, },
+  dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+  clean => { FILES    => 'Math-SlideRule-*' },
 );
 
 if ( $ExtUtils::MakeMaker::VERSION ge '6.46' ) {
