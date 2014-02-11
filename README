@@ -2,11 +2,11 @@ Math::SlideRule - slide rule related methods for Perl
 
 To install this module, use CPAN, for example:
 
-  cpanm Music::Scala
+  cpanm Math::SlideRule
 
 For the current release, see:
 
-http://github.com/thrig/Music-Scala
+http://github.com/thrig/Math-SlideRule
 
 which can be installed by cloning that directory then running `cpanm .`
 therein (or by running cpanm against the git repository URL directly).
