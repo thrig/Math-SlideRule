@@ -43,8 +43,9 @@ ok( Math::SlideRule::_round(9.026) == 9.05,   'round <10 @ 9.026' );
 #
 # Public attributes
 
-ok( $sr->C(4.1) );
-ok( $sr->D(3.7) );
+is( $sr->C(4.1),   4.1,  'set C' );
+# these round
+is( $sr->D(1.111), 1.11, 'set D' );
 
 ok( $sr->clear_C() );
 dies_ok { $sr->C("number six") } 'number not a name';
@@ -56,10 +57,18 @@ dies_ok { $sr->D("number one") } 'who is number one?';
 #
 # Public methods
 
-is( $sr->multiply( 1.1, 2.2 ), 2.42, 'simple multiply' );
-is( $sr->multiply( 4.1, 3.7 ), 15.2, 'magnitude shift result' );
-is( $sr->multiply( 99,  99 ),  9800, 'big multiply' );
+is( $sr->divide( 75, 92 ), 0.815, 'simple divide' );
 
-# TODO small multiply, tests where one exp pos, other neg, etc.
+is( $sr->multiply( 1.1,  2.2 ),  2.42,   'simple multiply' );
+is( $sr->multiply( 4.1,  3.7 ),  15.2,   'magnitude shift result' );
+is( $sr->multiply( 99,   99 ),   9800,   'big multiply' );
+is( $sr->multiply( 0.02, 0.02 ), 0.0004, 'small multiply' );
 
-plan tests => 27;
+# I try not to be negative, but these things happen.
+is( $sr->multiply( 1.1,  -2.2 ), -2.42, 'negative' );
+is( $sr->multiply( -1.1, -2.2 ), 2.42,  'not negative' );
+
+is( $sr->multiply( 42, 31,  28,  215 ),  7850000,  'chain multiply' );
+is( $sr->multiply( 42, -31, -28, -215 ), -7850000, 'chain multiply neg' );
+
+plan tests => 33;

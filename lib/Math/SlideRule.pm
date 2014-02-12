@@ -18,7 +18,7 @@ use Scalar::Util qw/looks_like_number/;
 use Moo;
 use namespace::clean;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 ########################################################################
 #
@@ -31,9 +31,8 @@ our $VERSION = '0.02';
 my $SR_MIN = 1;
 my $SR_MAX = 10;
 
-# Makes a number positive and within the ruler bounds, returns normalized
-# number and the exponent of the offset the original was from the bounds.
-# (I hope you're handling the negatives somewhere else!)
+# Converts numbers to standard form (scientific notation) as slide rule can
+# only deal with numbers 1..10; exponent and sign must be handled elsewhere.
 sub _normalize {
   my $val = abs(shift);
   my $exp = 0;
@@ -59,7 +58,7 @@ sub _normalize {
 sub _round {
   # check input only here as with isa would need to make is-number check both
   # here and over in the isa.
-  die "input value must be number $SR_MIN <= n <= $SR_MAX"
+  die "input value '$_[0]' must be number $SR_MIN <= n <= $SR_MAX"
     if !looks_like_number( $_[0] )
     or $_[0] < $SR_MIN,
     or $_[0] > $SR_MAX;
@@ -99,31 +98,75 @@ has D => (
 #
 # METHODS
 
-sub multiply {
+# Cannot just pass m*(1/n) to multiply() because that looses precision: .82 for
+# 75/92 while can get .815 on pocket slide rule. On a slide rule, this is just
+# multiplication done backwards.
+#
+# TODO support chain division, would that be ((n/m)/o)/p form ?
+sub divide {
   my $self = shift;
-  my ( $n1, $n2 ) = @_;
+  my ( $n, $m ) = @_;
   croak "need two numbers"
-    if !looks_like_number($n1)
-    or !looks_like_number($n2);
+    if !looks_like_number($n)
+    or !looks_like_number($m)
+    or @_ > 2;
 
-  my $is_negative = ( ( $n1 < 0 and $n2 >= 0 ) or ( $n1 >= 0 and $n2 < 0 ) );
-  ( $n1, my $n1_exp ) = _normalize($n1);
-  ( $n2, my $n2_exp ) = _normalize($n2);
+  my $is_negative = ( ( $n < 0 and $m >= 0 ) or ( $n >= 0 and $m < 0 ) );
+  ( $n, my $n_exp ) = _normalize($n);
+  ( $m, my $m_exp ) = _normalize($m);
 
-  # cheat and just multiply (these attributes round the values)
-  my $val = $self->C($n1) * $self->D($n2);
+  my $val = $self->C($n) / $self->D($m);
 
-  # order of magnitude change, adjust back to bounds
-  if ( $val > $SR_MAX ) {
-    $val /= 10;
-    $n1_exp++;
+  if ( $val < $SR_MIN ) {
+    $val *= 10;
+    $n_exp--;
   }
-  # read off value from slide (must be rounded) and figure out where the
-  # decimal goes
-  $val = _round($val) * 10**( $n1_exp + $n2_exp );
+  $val = _round($val) * 10**( $n_exp - $m_exp );
 
   $val *= -1 if $is_negative;
   return $val;
+}
+
+sub multiply {
+  my $self = shift;
+  my $n    = shift;
+  croak "need at least two numbers" if @_ < 1;
+
+  my $i = 0;
+  croak "argument index $i not a number" if !looks_like_number($n);
+
+  my $neg_count = $n < 0 ? 1 : 0;
+  my ( $n_coe, $n_exp ) = _normalize($n);
+
+  # Chain method has first lookup on D and then subsequent done by moving C on
+  # slider and keeping tabs with the hairline, then reading back on D for the
+  # final result.
+  my $product  = $self->D($n_coe);
+  my $exponent = $n_exp;
+
+  for my $m (@_) {
+    $i++;
+    croak "argument index $i not a number" if !looks_like_number($m);
+
+    $neg_count++ if $m < 0;
+    my ( $m_coe, $m_exp ) = _normalize($m);
+
+    $product *= $self->C($m_coe);
+    $exponent += $m_exp;
+
+    # order of magnitude change, adjust back to bounds (these notable on slide
+    # rule by having to index from the opposite direction than usual).
+    if ( $product > $SR_MAX ) {
+      $product /= 10;
+      $exponent++;
+    }
+    $product = _round($product);
+  }
+
+  $product *= 10**$exponent;
+  $product *= -1 if $neg_count % 2 == 1;
+
+  return $product;
 }
 
 1;
@@ -135,41 +178,52 @@ Math::SlideRule - slide rule support for Perl
 
 =head1 SYNOPSIS
 
+Simulate an analog computer.
+
 *** BETA interface, may change without warning ***
 
     use Math::SlideRule;
 
     my $sr = Math::SlideRule->new();
 
-    # set where the slide rule is (these don't do much)
+    # set where the slide rule is (these don't do much, and are at
+    # present not linked as things on the slider bit would be)
     $sr->C(1.5);
     $sr->D(3.7);
 
-    # sets ->C, ->D, multiplies, handles tricky decimals, etc.
+    # sets ->C, ->D, handles tricky decimals, etc.
+    $sr->divide(75, 92);
     $sr->multiply(1.5, 3.7);
+    $sr->multiply(-1.1, 2.2, -3.3, 4.4);
 
 =head1 DESCRIPTION
 
 Slide rule support for Perl, based in particular on the capabilities of my
 Pickett Model N 3P-ES pocket slide rule. As such, the abbreviated rule names
-(short letter names) are retained for the values that can be set to on the
-software slide rule. Numeric values are rounded as necessary, though this
-should really only be done in a subclass specific to a particular length of
-slide rule (patches welcome for 10" or 20" slide rule number resolutions).
+(short letter names) are retained as attributes (though do not do much). More
+importantly, numeric values are rounded as necessary, though this should really
+only be done in a subclass specific to a particular length of slide rule
+(TODO). Sadly, C<sprintf> is somewhat more exacting than a human placing 9.99 a
+skosh off the 10 tick, so this code will likely be less accurate for some
+values than a slide rule.
 
 Certain slide rule realities are skipped, such as left versus right sliding
 based on whether the result stays within the same order of magnitude: C<1.1 *
-2.5> and C<4.1 * 3.7> require opposite sliding directions to compute, and the
-decimal must be managed for one.
+2.5> and C<4.1 * 3.7> require opposite sliding directions to compute, and one
+requires more management of the decimal.
 
 =head1 ATTRIBUTES
 
+Calls will C<croak> or C<die> if something goes awry.
+
 C<C>, C<D>, and C<clear_*> to hold values for particular slide rule lookups, or
-to clear such. Largely irrelevant?
+to clear such. Largely irrelevant? (Used by C<multiply> and other methods.)
 
 =head1 METHODS
 
-C<multiply> requires two numbers, multipies them, returns result.
+C<multiply> requires two or more numbers, multipies them, returns result.
+There's a C<divide> as well. (Though no support for the combined multiplication
+and division tricks possible on a slide rule.)
 
 =head1 BUGS
 
@@ -184,8 +238,8 @@ L<http://github.com/thrig/Math-SlideRule>
 
 =head2 Known Issues
 
-No known issues. (But hardly anything is implemented, so that's probably a
-big issue.)
+No known issues. Probably lots. (But hardly anything is implemented, so that's
+probably a big issue.)
 
 =head1 AUTHOR
 
