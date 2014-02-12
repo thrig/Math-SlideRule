@@ -15,7 +15,8 @@ my %params = (
   PL_FILES           => {},
   CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
   BUILD_REQUIRES     => { 'Test::Exception' => 0, 'Test::More' => 0, },
-  PREREQ_PM          => { 'Carp' => 0, 'Moo' => 0, 'Scalar::Util' => 0, },
+  PREREQ_PM =>
+    { 'Carp' => 0, 'Moo' => 0, 'namespace::clean' => 0, 'Scalar::Util' => 0, },
   dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
   clean => { FILES    => 'Math-SlideRule-*' },
 );
