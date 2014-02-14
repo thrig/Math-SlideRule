@@ -2,7 +2,7 @@
 #
 # Slide rule support for Perl. Mostly as Perl and slide rule practice for the
 # author, but might be handy to simulate values someone using a slide rule
-# would come up with? I dunno.
+# might come up with? I dunno.
 #
 # *** BETA interface, may change ***
 
@@ -12,71 +12,12 @@ use 5.010000;
 use strict;
 use warnings;
 
-use Carp qw/croak/;
-use Scalar::Util qw/looks_like_number/;
-
+use Carp qw/confess croak/;
 use Moo;
 use namespace::clean;
+use Scalar::Util qw/looks_like_number/;
 
-our $VERSION = '0.03';
-
-########################################################################
-#
-# SKETCHY INTERNAL JUNK DO NOT USE LOOK I WARNED YOU
-
-# Bounds check for numeric input (limits might come from ->new if there be
-# slide rules that have larger ranges, but I suspect they might instead try to
-# pack in more resolution over the 1..10 space). In particular, some of the
-# logic below conflates these with order-of-magnitude changes.
-my $SR_MIN = 1;
-my $SR_MAX = 10;
-
-# Converts numbers to standard form (scientific notation) as slide rule can
-# only deal with numbers 1..10; exponent and sign must be handled elsewhere.
-sub _normalize {
-  my $val = abs(shift);
-  my $exp = 0;
-  if ( $val < $SR_MIN ) {
-    # TODO better way? how does sprintf "%e" figure out the sci notation?
-    while ( $val < $SR_MIN ) {
-      $val *= 10;
-      $exp--;
-    }
-  } elsif ( $val > $SR_MAX ) {
-    while ( $val > $SR_MAX ) {
-      $val /= 10;
-      $exp++;
-    }
-  }
-  return $val, $exp;
-}
-
-# TODO these resolutions are specific to my pocket slide rule, so really
-# should not be in the main module. Additional work might be to randomize
-# things "a little" for when the human is guessing between the lines, but
-# that's more work.
-sub _round {
-  # check input only here as with isa would need to make is-number check both
-  # here and over in the isa.
-  die "input value '$_[0]' must be number $SR_MIN <= n <= $SR_MAX"
-    if !looks_like_number( $_[0] )
-    or $_[0] < $SR_MIN,
-    or $_[0] > $SR_MAX;
-
-  if ( $_[0] < 3 ) {
-    # e.g. 1.01 at best, though marks only at .02, .04, .06, ...
-    return sprintf "%.2f", $_[0];
-  }
-
-  if ( $_[0] < 5 ) {
-    # e.g. 4.025 at best, marks at .05, .10, .15, ...
-    # maths (now better) lifted from Math::Round::Var
-    return sprintf( "%0.0f", $_[0] / 0.025 ) * 0.025;
-  }
-
-  # e.g. 9.05 at best, marks at .10, .20, .30, ...
-  return sprintf( "%0.0f", $_[0] / 0.05 ) * 0.05;
-}
+our $VERSION = '0.04';
 
 ########################################################################
 #
@@ -84,13 +25,13 @@ sub _round {
 
 has C => (
   clearer => 1,
-  coerce  => \&_round,
+  coerce  => sub { __PACKAGE__->round( $_[0] ) },
   is      => 'rw',
 );
 
 has D => (
   clearer => 1,
-  coerce  => \&_round,
+  coerce  => sub { __PACKAGE__->round( $_[0] ) },
   is      => 'rw',
 );
 
@@ -112,16 +53,16 @@ sub divide {
     or @_ > 2;
 
   my $is_negative = ( ( $n < 0 and $m >= 0 ) or ( $n >= 0 and $m < 0 ) );
-  ( $n, my $n_exp ) = _normalize($n);
-  ( $m, my $m_exp ) = _normalize($m);
+  ( $n, my $n_exp ) = $self->standard_form($n);
+  ( $m, my $m_exp ) = $self->standard_form($m);
 
   my $val = $self->C($n) / $self->D($m);
 
-  if ( $val < $SR_MIN ) {
+  if ( $val < 1 ) {
     $val *= 10;
     $n_exp--;
   }
-  $val = _round($val) * 10**( $n_exp - $m_exp );
+  $val = $self->round($val) * 10**( $n_exp - $m_exp );
 
   $val *= -1 if $is_negative;
   return $val;
@@ -136,11 +77,12 @@ sub multiply {
   croak "argument index $i not a number" if !looks_like_number($n);
 
   my $neg_count = $n < 0 ? 1 : 0;
-  my ( $n_coe, $n_exp ) = _normalize($n);
+  my ( $n_coe, $n_exp ) = $self->standard_form($n);
 
   # Chain method has first lookup on D and then subsequent done by moving C on
   # slider and keeping tabs with the hairline, then reading back on D for the
-  # final result.
+  # final result. (Plus incrementing the exponent count when a reverse slide is
+  # necessary, for example for 3.4*4.1, as that jumps to the next magnitude.)
   my $product  = $self->D($n_coe);
   my $exponent = $n_exp;
 
@@ -149,24 +91,56 @@ sub multiply {
     croak "argument index $i not a number" if !looks_like_number($m);
 
     $neg_count++ if $m < 0;
-    my ( $m_coe, $m_exp ) = _normalize($m);
+    my ( $m_coe, $m_exp ) = $self->standard_form($m);
 
     $product *= $self->C($m_coe);
     $exponent += $m_exp;
 
     # order of magnitude change, adjust back to bounds (these notable on slide
     # rule by having to index from the opposite direction than usual).
-    if ( $product > $SR_MAX ) {
+    if ( $product > 10 ) {
       $product /= 10;
       $exponent++;
     }
-    $product = _round($product);
+    $product = $self->round($product);
   }
 
   $product *= 10**$exponent;
   $product *= -1 if $neg_count % 2 == 1;
 
   return $product;
+}
+
+sub round {
+  my $self = shift;
+  confess "uh oh" if !defined $_[0];
+  die "input value '$_[0]' must be number 1 <= n <= 10"
+    if !looks_like_number( $_[0] )
+    or $_[0] < 1,
+    or $_[0] > 10;
+  sprintf "%0.2f", $_[0];
+}
+
+# Converts numbers to standard form (scientific notation) as slide rule can
+# only deal with numbers 1..10; exponent and sign must be handled elsewhere.
+sub standard_form {
+  my $self = shift;
+
+  my $val = abs(shift);
+  my $exp = 0;
+  if ( $val < 1 ) {
+    # TODO better way? how does sprintf "%e" figure out the sci notation?
+    while ( $val < 1 ) {
+      $val *= 10;
+      $exp--;
+    }
+  } elsif ( $val > 10 ) {
+    while ( $val > 10 ) {
+      $val /= 10;
+      $exp++;
+    }
+  }
+  return $val, $exp;
 }
 
 1;
@@ -191,26 +165,28 @@ Simulate an analog computer.
     $sr->C(1.5);
     $sr->D(3.7);
 
-    # sets ->C, ->D, handles tricky decimals, etc.
+    $sr->round(1.234); # 1.23 via sprintf()
+
+    # scientific notation breakdown
+    $sr->standard_form(1234); # [ 1.234, 3 ]
+
+    # these set ->C, ->D, handle the tricky decimals, etc.
     $sr->divide(75, 92);
     $sr->multiply(1.5, 3.7);
     $sr->multiply(-1.1, 2.2, -3.3, 4.4);
 
 =head1 DESCRIPTION
 
-Slide rule support for Perl, based in particular on the capabilities of my
-Pickett Model N 3P-ES pocket slide rule. As such, the abbreviated rule names
-(short letter names) are retained as attributes (though do not do much). More
-importantly, numeric values are rounded as necessary, though this should really
-only be done in a subclass specific to a particular length of slide rule
-(TODO). Sadly, C<sprintf> is somewhat more exacting than a human placing 9.99 a
-skosh off the 10 tick, so this code will likely be less accurate for some
-values than a slide rule.
+Slide rule support for Perl. The abbreviated slide rule names (short letter
+names like C, D, etc.) are retained as attributes (though do not do much).
+Rounding is performed on the input and output values.
 
 Certain slide rule realities are skipped, such as left versus right sliding
 based on whether the result stays within the same order of magnitude: C<1.1 *
 2.5> and C<4.1 * 3.7> require opposite sliding directions to compute, and one
 requires more management of the decimal.
+
+L<Math::SlideRule::PickettPocket> approximates a N 3P-ES pocket slide rule.
 
 =head1 ATTRIBUTES
 
@@ -221,9 +197,17 @@ to clear such. Largely irrelevant? (Used by C<multiply> and other methods.)
 
 =head1 METHODS
 
-C<multiply> requires two or more numbers, multipies them, returns result.
-There's a C<divide> as well. (Though no support for the combined multiplication
-and division tricks possible on a slide rule.)
+C<round> rounds the input number via C<sprintf>. It should be overridden in any
+subclasses to suit the particulars of the slide rule being implemented.
+Otherwise is mostly used internally.
+
+C<standard_form> returns a number as a list consisting of the characteristic
+and exponent of that number. Mostly used internally by various other routines.
+
+C<multiply> requires two (or more) numbers, multiples them, returns result.
+There's a C<divide> as well, though that only takes two numbers. (There is no
+support for the combined multiplication and division tricks possible on a
+slide rule.)
 
 =head1 BUGS
 
