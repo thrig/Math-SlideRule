@@ -1,7 +1,7 @@
 #!perl
 
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 
 use Test::More;    # plan is down at bottom
 use Test::Exception;

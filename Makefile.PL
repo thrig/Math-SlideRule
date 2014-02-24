@@ -3,7 +3,7 @@
 use 5.010000;
 
 use strict;
-use warnings FATAL => 'all';
+use warnings;
 use ExtUtils::MakeMaker;
 
 my %params = (
