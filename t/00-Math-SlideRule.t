@@ -18,17 +18,7 @@ isa_ok( $sr, 'Math::SlideRule' );
 #
 # Public attributes
 #
-# subclasses shouldn't normally override these, so tested only here
-
-is( $sr->C(4.1), sprintf( "%.2f", 4.1 ), 'set C' );
-# these round
-is( $sr->D(1.1119), sprintf( "%.2f", 1.112 ), 'set D' );
-
-ok( $sr->clear_C() );
-dies_ok { $sr->C("number six") } 'number not a name';
-
-ok( $sr->clear_D() );
-dies_ok { $sr->D("number one") } 'who is number one?';
+# Gone!
 
 ########################################################################
 #
@@ -45,6 +35,7 @@ is_deeply( [ $sr->standard_form(5550) ],  [ 5.55, 3 ],  'norm3' );
 
 # do need to check these...
 is( $sr->divide( 75, 92 ), 0.815, 'simple divide' );
+is( $sr->divide( 14, 92, 3 ), 0.0507, 'less simple divide' );
 
 is( $sr->multiply( 1.1,  2.2 ),  2.42,   'simple multiply' );
 is( $sr->multiply( 4.1,  3.7 ),  15.2,   'magnitude shift result' );
@@ -58,4 +49,4 @@ is( $sr->multiply( -1.1, -2.2 ), 2.42,  'not negative' );
 is( $sr->multiply( 42, 31,  28,  215 ),  7830000,  'chain multiply' );
 is( $sr->multiply( 42, -31, -28, -215 ), -7830000, 'chain multiply neg' );
 
-plan tests => 24;
+plan tests => 19;

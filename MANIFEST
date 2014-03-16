@@ -1,7 +1,8 @@
 Changes
-MANIFEST			This list of files
+MANIFEST
 Makefile.PL
 README
+SIGNATURE
 lib/Math/SlideRule.pm
 lib/Math/SlideRule/PickettPocket.pm
 t/00-Math-SlideRule.t

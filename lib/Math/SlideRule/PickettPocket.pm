@@ -6,8 +6,6 @@
 package Math::SlideRule::PickettPocket;
 
 use 5.010000;
-use strict;
-use warnings;
 
 use Moo;
 use namespace::clean;
@@ -19,7 +17,9 @@ our $VERSION = '0.05';
 
 # Fairly accurate, though humans might (try to) do better in some cases by
 # trying to guess where 9.99 is, so in theory "close but random" code might
-# better reproduce what a slide rule can do.
+# better reproduce what a slide rule can do. This is based off of the C/D
+# scales; A/B rounding would be worse, as those scales cover two orders of
+# magnitude in the same distance.
 sub round {
   my $self = shift;
 

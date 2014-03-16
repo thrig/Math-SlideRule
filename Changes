@@ -1,5 +1,8 @@
-Revision history for Math-SlideRule
+Revision history for Math-SlideRule. Notable things I remember to put here,
+anyways. The git log might be more informative? Maybe not.
 
-0.01    Date/time
+0.05    Mar 16thish 2014
+        Removed C/D attributes. Various other changes and mostly ruminations.
+
+0.01    Feb 11 2014 or so.
         First version, released on an unsuspecting world.
-

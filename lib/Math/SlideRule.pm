@@ -1,7 +1,7 @@
 # -*- Perl -*-
 #
-# Slide rule support for Perl. Mostly as Perl and slide rule practice for the
-# author, but might be handy to simulate values someone using a slide rule
+# Slide rule support for Perl. Mostly as Perl (Moo) and slide rule practice for
+# the author, but might be handy to simulate values someone using a slide rule
 # might come up with? I dunno.
 #
 # *** BETA interface, may change ***
@@ -9,8 +9,6 @@
 package Math::SlideRule;
 
 use 5.010000;
-use strict;
-use warnings;
 
 use Carp qw/confess croak/;
 use Moo;
@@ -22,50 +20,60 @@ our $VERSION = '0.05';
 ########################################################################
 #
 # ATTRIBUTES
-
-has C => (
-  clearer => 1,
-  coerce  => sub { __PACKAGE__->round( $_[0] ) },
-  is      => 'rw',
-);
-
-has D => (
-  clearer => 1,
-  coerce  => sub { __PACKAGE__->round( $_[0] ) },
-  is      => 'rw',
-);
+#
+# There used to be C/D 'has' for the value those might be set to on the
+# rule, though if one adds the full set from just my rule--square root even
+# digits, square root odd digits, K, A, B, ST, S, T (twice), CI, C, D, DI,
+# three more for doing cube roots, plus 11 mostly log related scales on the
+# flip side--updating all of these as appropriate when any one attribute
+# changes: yeah, no. So the C/D were removed.
 
 ########################################################################
 #
 # METHODS
 
-# Cannot just pass m*(1/n) to multiply() because that looses precision: .82 for
-# 75/92 while can get .815 on pocket slide rule. On a slide rule, this is just
-# multiplication done backwards.
+# Division is just multiplication done backwards on a slide rule, as the same
+# physical distances are involved. There are also "CF" and "CI" (C scale,
+# folded, or inverse) and so forth scales to assist with such operations,
+# though these help avoid excess motions on the slide rule.
 #
-# TODO support chain division, would that be ((n/m)/o)/p form ?
+# NOTE cannot just pass m*(1/n) to multiply() because that looses precision:
+# .82 for 75/92 while can get .815 on pocket slide rule.
 sub divide {
   my $self = shift;
-  my ( $n, $m ) = @_;
-  croak "need two numbers"
-    if !looks_like_number($n)
-    or !looks_like_number($m)
-    or @_ > 2;
+  my $n    = shift;
+  croak "need at least two numbers" if @_ < 1;
 
-  my $is_negative = ( ( $n < 0 and $m >= 0 ) or ( $n >= 0 and $m < 0 ) );
-  ( $n, my $n_exp ) = $self->standard_form($n);
-  ( $m, my $m_exp ) = $self->standard_form($m);
+  my $i = 0;
+  croak "argument index $i not a number" if !looks_like_number($n);
 
-  my $val = $self->C($n) / $self->D($m);
+  my $neg_count = $n < 0 ? 1 : 0;
 
-  if ( $val < 1 ) {
-    $val *= 10;
-    $n_exp--;
+  my ( $n_coe, $n_exp ) = $self->standard_form($n);
+  my $product  = $self->round($n_coe);
+  my $exponent = $n_exp;
+
+  for my $m (@_) {
+    $i++;
+    croak "argument index $i not a number" if !looks_like_number($m);
+
+    $neg_count++ if $m < 0;
+    my ( $m_coe, $m_exp ) = $self->standard_form($m);
+
+    $product /= $self->round($m_coe);
+    $exponent -= $m_exp;
+
+    if ( $product < 1 ) {
+      $product *= 10;
+      $exponent--;
+    }
+    $product = $self->round($product);
   }
-  $val = $self->round($val) * 10**( $n_exp - $m_exp );
 
-  $val *= -1 if $is_negative;
-  return $val;
+  $product *= 10**$exponent;
+  $product *= -1 if $neg_count % 2 == 1;
+
+  return $product;
 }
 
 sub multiply {
@@ -83,7 +91,11 @@ sub multiply {
   # slider and keeping tabs with the hairline, then reading back on D for the
   # final result. (Plus incrementing the exponent count when a reverse slide is
   # necessary, for example for 3.4*4.1, as that jumps to the next magnitude.)
-  my $product  = $self->D($n_coe);
+  #
+  # One can also do the multiplication on the A and B scales, which is handy if
+  # you then need to pull the square root off of D. But this implementation
+  # ignores such alternatives.
+  my $product  = $self->round($n_coe);
   my $exponent = $n_exp;
 
   for my $m (@_) {
@@ -93,11 +105,14 @@ sub multiply {
     $neg_count++ if $m < 0;
     my ( $m_coe, $m_exp ) = $self->standard_form($m);
 
-    $product *= $self->C($m_coe);
+    $product *= $self->round($m_coe);
     $exponent += $m_exp;
 
-    # order of magnitude change, adjust back to bounds (these notable on slide
-    # rule by having to index from the opposite direction than usual).
+    # Order of magnitude change, adjust back to bounds (these notable on slide
+    # rule by having to index from the opposite direction than usual for the C
+    # and D scales (though one could also obtain the value with the A and B or
+    # the CI and DI scales, but those would then need some rule to track the
+    # exponent change)).
     if ( $product > 10 ) {
       $product /= 10;
       $exponent++;
@@ -111,6 +126,11 @@ sub multiply {
   return $product;
 }
 
+# Generic rounding; a real slide rule has different resolutions possible for
+# different scales (C/D vs. A/B) and also within those scales. See
+# PickettPocket.pm for an attempt at C/D, though humans can often fudge out
+# better numbers by reading between the lines (they can also make incorrect or
+# totally wrong fudges, so...).
 sub round {
   my $self = shift;
   confess "uh oh" if !defined $_[0];
@@ -152,7 +172,7 @@ Math::SlideRule - slide rule support for Perl
 
 =head1 SYNOPSIS
 
-Simulate an analog computer.
+Simulate an analog computer (without much nuance).
 
 *** BETA interface, may change without warning ***
 
@@ -160,42 +180,24 @@ Simulate an analog computer.
 
     my $sr = Math::SlideRule->new();
 
-    # set where the slide rule is (these don't do much, and are at
-    # present not linked as things on the slider bit would be)
-    $sr->C(1.5);
-    $sr->D(3.7);
-
     $sr->round(1.234); # 1.23 via sprintf()
 
     # scientific notation breakdown
     $sr->standard_form(1234); # [ 1.234, 3 ]
 
-    # these set ->C, ->D, handle the tricky decimals, etc.
     $sr->divide(75, 92);
     $sr->multiply(1.5, 3.7);
     $sr->multiply(-1.1, 2.2, -3.3, 4.4);
 
 =head1 DESCRIPTION
 
-Slide rule support for Perl. The abbreviated slide rule names (short letter
-names like C, D, etc.) are retained as attributes (though do not do much).
-Rounding is performed on the input and output values.
-
-Certain slide rule realities are skipped, such as left versus right sliding
-based on whether the result stays within the same order of magnitude: C<1.1 *
-2.5> and C<4.1 * 3.7> require opposite sliding directions to compute, and one
-requires more management of the decimal.
-
-L<Math::SlideRule::PickettPocket> approximates a N 3P-ES pocket slide rule.
-
-=head1 ATTRIBUTES
-
-Calls will C<croak> or C<die> if something goes awry.
-
-C<C>, C<D>, and C<clear_*> to hold values for particular slide rule lookups, or
-to clear such. Largely irrelevant? (Used by C<multiply> and other methods.)
+Slide rule support for Perl. More rounding than perhaps is necessary is the
+main feature of this module. L<Math::SlideRule::PickettPocket> approximates a N
+3P-ES pocket slide rule.
 
 =head1 METHODS
+
+Calls will C<croak> or C<die> if something goes awry.
 
 C<round> rounds the input number via C<sprintf>. It should be overridden in any
 subclasses to suit the particulars of the slide rule being implemented.
@@ -205,9 +207,8 @@ C<standard_form> returns a number as a list consisting of the characteristic
 and exponent of that number. Mostly used internally by various other routines.
 
 C<multiply> requires two (or more) numbers, multiples them, returns result.
-There's a C<divide> as well, though that only takes two numbers. (There is no
-support for the combined multiplication and division tricks possible on a
-slide rule.)
+There's a C<divide> as well. (There is no support for the combined
+multiplication and division tricks possible on a slide rule.)
 
 =head1 BUGS
 
@@ -222,8 +223,21 @@ L<http://github.com/thrig/Math-SlideRule>
 
 =head2 Known Issues
 
-No known issues. Probably lots. (But hardly anything is implemented, so that's
-probably a big issue.)
+C<round> will need to be modified to specify what sort of rounding need be
+done, as the various scales have various resolutions possible (and may vary by
+the number under consideration, as square roots divide the scale into two, and
+cube roots that same space into three).
+
+A more realistic implementation might use XS, and C<malloc> a large amount of
+contiguous memory, and then "slide" pointers around therein to represent where
+the slider and hairline are. The scales would be mapped into this region of
+memory, so that address C<0x0> would be C<1> of the D scale, and the highest
+memory address 10 of that scale, and the other values laid out as appropriate
+between those posts. With a large amount of memory, suitable resolution might
+be gained, though rounding would be necessary for the many results that would
+fall into memory addresses not associated with some tick mark of the scale in
+question. (That the slider needs be movable and therefore the mapping of any
+scales on it might be tricky?)
 
 =head1 AUTHOR
 
