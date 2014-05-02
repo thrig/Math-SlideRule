@@ -13,7 +13,7 @@ use Scalar::Util qw/looks_like_number/;
 
 extends 'Math::SlideRule';
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 # Fairly accurate, though humans might (try to) do better in some cases by
 # trying to guess where 9.99 is, so in theory "close but random" code might
