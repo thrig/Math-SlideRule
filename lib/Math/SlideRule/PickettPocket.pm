@@ -92,7 +92,7 @@ probably a big issue.)
 
 =head1 AUTHOR
 
-Jeremy Mates, C<< <jmates at cpan.org> >>
+thrig - Jeremy Mates (cpan:JMATES) C<< <jmates at cpan.org> >>
 
 =head1 LICENSE AND COPYRIGHT
 
