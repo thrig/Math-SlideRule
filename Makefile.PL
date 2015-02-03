@@ -11,7 +11,7 @@ my %params = (
   AUTHOR             => q{Jeremy Mates <jmates@cpan.org>},
   VERSION_FROM       => 'lib/Math/SlideRule.pm',
   ABSTRACT_FROM      => 'lib/Math/SlideRule.pm',
-  LICENSE            => 'Artistic_2_0',
+  LICENSE            => 'artistic_2',
   PL_FILES           => {},
   CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
   BUILD_REQUIRES     => { 'Test::Exception' => 0, 'Test::More' => 0, },
