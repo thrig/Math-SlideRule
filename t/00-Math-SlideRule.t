@@ -17,36 +17,47 @@ isa_ok( $sr, 'Math::SlideRule' );
 ########################################################################
 #
 # Public attributes
-#
-# Gone!
+
+# Back! Though are lookup tables now, so uh yeah.
 
 ########################################################################
 #
 # Public methods
 
 # subclasses shouldn't normally override this, so tested only here
-is_deeply( [ $sr->standard_form(.0055) ], [ 5.5,  -3 ], 'norm-3' );
-is_deeply( [ $sr->standard_form(.055) ],  [ 5.5,  -2 ], 'norm-2' );
-is_deeply( [ $sr->standard_form(.55) ],   [ 5.5,  -1 ], 'norm-1' );
-is_deeply( [ $sr->standard_form(5.55) ],  [ 5.55, 0 ],  'norm0' );
-is_deeply( [ $sr->standard_form(55.5) ],  [ 5.55, 1 ],  'norm1' );
-is_deeply( [ $sr->standard_form(555) ],   [ 5.55, 2 ],  'norm2' );
-is_deeply( [ $sr->standard_form(5550) ],  [ 5.55, 3 ],  'norm3' );
+is_deeply( [ $sr->standard_form(.0055) ], [ 5.5,  -3, 0 ], 'norm-3' );
+is_deeply( [ $sr->standard_form(.055) ],  [ 5.5,  -2, 0 ], 'norm-2' );
+is_deeply( [ $sr->standard_form(.55) ],   [ 5.5,  -1, 0 ], 'norm-1' );
+is_deeply( [ $sr->standard_form(5.55) ],  [ 5.55, 0,  0 ], 'norm0' );
+is_deeply( [ $sr->standard_form(55.5) ],  [ 5.55, 1,  0 ], 'norm1' );
+is_deeply( [ $sr->standard_form(555) ],   [ 5.55, 2,  0 ], 'norm2' );
+is_deeply( [ $sr->standard_form(5550) ],  [ 5.55, 3,  0 ], 'norm3' );
+is_deeply( [ $sr->standard_form(-640) ],  [ 6.40, 2,  1 ], 'norm4' );
 
 # do need to check these...
-is( $sr->divide( 75, 92 ), 0.815, 'simple divide' );
-is( $sr->divide( 14, 92, 3 ), 0.0507, 'less simple divide' );
+is( sprintf( "%.2f", $sr->divide( 75, 92 ) ), 0.82, 'simple divide' );
+is( sprintf( "%.2f", $sr->divide( 14, 92, 3 ) ), 0.05, 'chain divide' );
 
-is( $sr->multiply( 1.1,  2.2 ),  2.42,   'simple multiply' );
-is( $sr->multiply( 4.1,  3.7 ),  15.2,   'magnitude shift result' );
-is( $sr->multiply( 99,   99 ),   9800,   'big multiply' );
-is( $sr->multiply( 0.02, 0.02 ), 0.0004, 'small multiply' );
+is( sprintf( "%.2f", $sr->multiply( 1.1, 2.2 ) ), 2.42, 'simple multiply' );
+is( sprintf( "%.2f", $sr->multiply( 4.1, 3.7 ) ),
+  15.17, 'multiply across bounds' );
+
+# actual answer precisely 4.00e-4; similar calculations without so nice
+# numbers would require rounding...
+is( sprintf( "%.4f", $sr->multiply( 0.02, 0.02 ) ), 0.0004,  'small multiply' );
+
+# this is probably near a worst case for accuracy, given the infrequent
+# ticks at the high end of the scale; 9799.41 vs. expected 9801, so
+# really do need to round things
+is( sprintf( "%.2f", $sr->multiply( 99, 99 ) ),   9799.41, 'big multiply' );
 
 # I try not to be negative, but these things happen.
-is( $sr->multiply( 1.1,  -2.2 ), -2.42, 'negative' );
-is( $sr->multiply( -1.1, -2.2 ), 2.42,  'not negative' );
+is( sprintf( "%.2f", $sr->multiply( 1.1,  -2.2 ) ), -2.42, 'negative' );
+is( sprintf( "%.2f", $sr->multiply( -1.1, -2.2 ) ), 2.42,  'not negative' );
 
-is( $sr->multiply( 42, 31,  28,  215 ),  7830000,  'chain multiply' );
-is( $sr->multiply( 42, -31, -28, -215 ), -7830000, 'chain multiply neg' );
+# These really do accumulate error without rounding! (TODO investigate
+# the error...)
+is( sprintf("%.2f", $sr->multiply( 42, 31,  28,  215 )), 7837905.09,  'chain multiply' );
+is( sprintf("%.2f", $sr->multiply( 42, -31, -28, -215 )), -7837905.09, 'chain multiply neg' );
 
-plan tests => 19;
+plan tests => 20;
