@@ -16,7 +16,8 @@ our $VERSION = '1.00';
 #
 # ATTRIBUTES
 
-# These are taken from common scale names on a slide rule
+# These are taken from common scale names on a slide rule; see code for
+# how they are populated.
 has A => ( is => 'lazy', );
 has C => ( is => 'lazy', );
 
@@ -40,6 +41,9 @@ has precision => ( is => 'rw', default => sub { 10_000 } );
 # that to find the distance of that value, then uses other distances
 # to figure out some new location, that a new value can be worked back
 # out from.
+#
+# NOTE that these scales are not calibrated directly to one another,
+# as they would be on a slide rule.
 sub _range_exp_weighted {
   my ( $self, $min, $max ) = @_;
 
@@ -56,6 +60,35 @@ sub _range_exp_weighted {
   }
 
   return { value => \@values, dist => \@distances };
+}
+
+# Binary search an array of values for a given value, returning index of
+# the closest match. Used to lookup values and their corresponding
+# distances from the various A, C, etc. attribute tables.
+sub _rank {
+  my ( $value, $ref, $lo, $hi ) = @_;
+
+  # No exact match; return index of value closest to the numeral supplied
+  if ( $lo > $hi ) {
+    if ( $lo > $#$ref ) {
+      return $hi;
+    } else {
+      if ( abs( $ref->[$lo] - $value ) >= abs( $ref->[$hi] - $value ) ) {
+        return $hi;
+      } else {
+        return $lo;
+      }
+    }
+  }
+
+  my $mid = int( $lo + ( $hi - $lo ) / 2 );
+  if ( $value < $ref->[$mid] ) {
+    return _rank( $value, $ref, $lo, $mid - 1 );
+  } elsif ( $value > $ref->[$mid] ) {
+    return _rank( $value, $ref, $mid + 1, $hi );
+  } else {
+    return $mid;
+  }
 }
 
 # Division is just multiplication done backwards on a slide rule, as the
@@ -162,33 +195,32 @@ sub multiply {
   return $product;
 }
 
-# Binary search an array of values for a given value, returning index of
-# the closest match. Used to lookup values and their corresponding
-# distances from the various A, C, etc. attribute tables.
-sub _rank {
-  my ( $value, $ref, $lo, $hi ) = @_;
+# Relies on conversion from A to C scales (and that the distances in
+# said scales are linked to one another)
+sub sqrt {
+  my ( $self, $n ) = @_;
+  die "argument not a number\n" if !defined $n or !looks_like_number($n);
+  die "Can't take sqrt of $n\n" if $n < 0;
 
-  # No exact match; return index of value closest to the numeral supplied
-  if ( $lo > $hi ) {
-    if ( $lo > $#$ref ) {
-      return $hi;
-    } else {
-      if ( abs( $ref->[$lo] - $value ) >= abs( $ref->[$hi] - $value ) ) {
-        return $hi;
-      } else {
-        return $lo;
-      }
-    }
+  my ( $n_coe, $n_exp, undef ) = $self->standard_form($n);
+
+  if ( $n_exp % 2 == 1 ) {
+    $n_coe *= 10;
+    $n_exp--;
   }
 
-  my $mid = int( $lo + ( $hi - $lo ) / 2 );
-  if ( $value < $ref->[$mid] ) {
-    return _rank( $value, $ref, $lo, $mid - 1 );
-  } elsif ( $value > $ref->[$mid] ) {
-    return _rank( $value, $ref, $mid + 1, $hi );
-  } else {
-    return $mid;
-  }
+  my $n_idx = _rank( $n_coe, $self->A->{value}, 0, $#{ $self->A->{value} } );
+
+  # NOTE division is due to A and C scale distances not being calibrated
+  # directly with one another
+  my $distance = $self->A->{dist}[$n_idx] / 2;
+
+  my $d_idx = _rank( $distance, $self->C->{dist}, 0, $#{ $self->C->{dist} } );
+  my $sqrt = $self->C->{value}[$d_idx];
+
+  $sqrt *= 10**( $n_exp / 2 );
+
+  return $sqrt;
 }
 
 # Converts numbers to standard form (scientific notation) or otherwise
@@ -246,6 +278,9 @@ Simulate an analog computer.
   $sr->multiply(1.5, 3.7);
   $sr->multiply(-1.1, 2.2, -3.3, 4.4);
 
+  # this uses an A/B to C/D scale conversion
+  $sr->sqrt(42);
+
 =head1 DESCRIPTION
 
 Slide rule support for Perl. Or, a complicated way to perform basic
@@ -270,6 +305,10 @@ Multiply the given numbers.
 
   $sr->multiply(2, 3);    # 6 (or so)
   $sr->multiply(2..5);    # 120 (ish)
+
+=item B<sqrt> I<num>
+
+Take the square root of the given number.
 
 =item B<standard_form> I<num>, [ I<min>, I<max> ]
 
@@ -299,7 +338,7 @@ L<http://github.com/thrig/Math-SlideRule>
 
 =head2 Known Issues
 
-The being rewritten part.
+Incomplete implementation, e.g. missing log, trig scales.
 
 =head1 SEE ALSO
 

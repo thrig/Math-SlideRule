@@ -42,14 +42,25 @@ is( sprintf( "%.2f", $sr->multiply( 1.1, 2.2 ) ), 2.42, 'simple multiply' );
 is( sprintf( "%.2f", $sr->multiply( 4.1, 3.7 ) ),
   15.17, 'multiply across bounds' );
 
+is( sprintf( "%.1f", $sr->sqrt(.04) ), 0.2,  'sqrt(.04)' );
+is( sprintf( "%.2f", $sr->sqrt(.4) ),  0.63, 'sqrt(.4)' );
+is( sprintf( "%.0f", $sr->sqrt(4) ),   2,    'sqrt(4)' );
+is( sprintf( "%.2f", $sr->sqrt(40) ),  6.32, 'sqrt(40)' );
+# and also outside the 1..100 bounds of the A/B scale, which must be
+# adjusted to fit, then the exponent properly handled
+is( sprintf( "%.0f", $sr->sqrt(400) ), 20, 'sqrt(400)' );
+# NOTE should be 63.25, really do need to investigate magnitude of the errors
+# of these calculations.
+is( sprintf( "%.2f", $sr->sqrt(4000) ), 63.24, 'sqrt(4000)' );
+
 # actual answer precisely 4.00e-4; similar calculations without so nice
 # numbers would require rounding...
-is( sprintf( "%.4f", $sr->multiply( 0.02, 0.02 ) ), 0.0004,  'small multiply' );
+is( sprintf( "%.4f", $sr->multiply( 0.02, 0.02 ) ), 0.0004, 'small multiply' );
 
 # this is probably near a worst case for accuracy, given the infrequent
 # ticks at the high end of the scale; 9799.41 vs. expected 9801, so
 # really do need to round things
-is( sprintf( "%.2f", $sr->multiply( 99, 99 ) ),   9799.41, 'big multiply' );
+is( sprintf( "%.2f", $sr->multiply( 99, 99 ) ), 9799.41, 'big multiply' );
 
 # I try not to be negative, but these things happen.
 is( sprintf( "%.2f", $sr->multiply( 1.1,  -2.2 ) ), -2.42, 'negative' );
@@ -57,7 +68,9 @@ is( sprintf( "%.2f", $sr->multiply( -1.1, -2.2 ) ), 2.42,  'not negative' );
 
 # These really do accumulate error without rounding! (TODO investigate
 # the error...)
-is( sprintf("%.2f", $sr->multiply( 42, 31,  28,  215 )), 7837905.09,  'chain multiply' );
-is( sprintf("%.2f", $sr->multiply( 42, -31, -28, -215 )), -7837905.09, 'chain multiply neg' );
+is( sprintf( "%.2f", $sr->multiply( 42, 31, 28, 215 ) ),
+  7837905.09, 'chain multiply' );
+is( sprintf( "%.2f", $sr->multiply( 42, -31, -28, -215 ) ),
+  -7837905.09, 'chain multiply neg' );
 
-plan tests => 20;
+plan tests => 26;
