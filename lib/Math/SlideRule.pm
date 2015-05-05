@@ -10,7 +10,7 @@ use Moo;
 use namespace::clean;
 use Scalar::Util qw/looks_like_number/;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 ########################################################################
 #
@@ -289,6 +289,40 @@ L<Math::SlideRule::PickettPocket> approximates a N 3P-ES pocket slide
 rule. Useful uses of this code might be to investiage how much error
 calculations on a slide rule can rack up, I guess?
 
+=head1 ATTRIBUTES
+
+Scales and settings related to the generation of such. The scales are
+not scaled to one another as they are on a slide rule, so relations
+between B<A> and B<C> will require appropriate math.
+
+=over 4
+
+=item B<A>
+
+Double decade scale from 1..100. Used by B<sqrt> in conjunction with
+B<C> scale. Weighted towards the low end, so has greater precision near
+1 than at 100. Overall precision may be set by the B<precision>
+attribute, ideally when the object is constructed, as changing the
+B<precision> on the fly is not supported.
+
+Internally, a hash reference of C<value> and C<dist> arrays, where the
+index of a particular value corresponds to a particular logarithmic
+distance. The internal B<_rank> method is used to find the index of a
+particular value or distance in these arrays.
+
+=item B<C>
+
+Scale from 1..10. Used by B<multiply> and B<divide>. Weighted towards
+the low end.
+
+=item B<precision> I<num>
+
+How precise the scales should be, 10000 by default over the range of the
+scale. Higher precision entails increased memory use for the resulting
+scale structures. Changing this on the fly is not supported.
+
+=back
+
 =head1 METHODS
 
 Calls will throw an exception if something goes awry.
@@ -338,7 +372,8 @@ L<http://github.com/thrig/Math-SlideRule>
 
 =head2 Known Issues
 
-Incomplete implementation, e.g. missing log, trig scales.
+Incomplete implementation, e.g. missing log, trig scales. Hilariously
+slow compared to just doing the math directly in Perl.
 
 =head1 SEE ALSO
 

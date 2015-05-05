@@ -14,7 +14,7 @@ use Scalar::Util qw/looks_like_number/;
 
 extends 'Math::SlideRule';
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 ########################################################################
 #
@@ -1644,6 +1644,27 @@ A Pickett Model N 3P-ES pocket slide rule implementation, at present
 only of the A/B and C/D scales, as used by B<multiply> and other
 such methods from the parent class. See L<Math::SlideRule> for
 details on those.
+
+=head1 ATTRIBUTES
+
+=over 4
+
+=item B<A>
+
+Double decade scale from 1..100. Manually built via C<gena> script
+present in the distribution of this module.
+
+=item B<C>
+
+Scale from 1..100. Manually built via C<genc> script present in the
+distribution of this module. (Minus the "P" value marked on the scale,
+as I do not not what that value is, nor what its exact value is.)
+
+=over
+
+=head1 METHODS
+
+See L<Math::SlideRule>.
 
 =head1 BUGS
 
