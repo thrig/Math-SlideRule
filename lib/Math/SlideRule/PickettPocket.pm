@@ -1660,7 +1660,7 @@ Scale from 1..100. Manually built via C<genc> script present in the
 distribution of this module. (Minus the "P" value marked on the scale,
 as I do not not what that value is, nor what its exact value is.)
 
-=over
+=back
 
 =head1 METHODS
 
