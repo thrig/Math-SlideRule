@@ -10,7 +10,7 @@ use Moo;
 use namespace::clean;
 use Scalar::Util qw/looks_like_number/;
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 ########################################################################
 #
@@ -64,30 +64,36 @@ sub _range_exp_weighted {
 
 # Binary search an array of values for a given value, returning index of
 # the closest match. Used to lookup values and their corresponding
-# distances from the various A, C, etc. attribute tables.
+# distances from the various A, C, etc. attribute tables. NOTE this
+# routine assumes that the given value has been normalized e.g. via
+# standard_form to lie somewhere on or between the minimum and maximum
+# values in the given array reference.
 sub _rank {
-  my ( $value, $ref, $lo, $hi ) = @_;
+  my ( $self, $value, $ref ) = @_;
 
-  # No exact match; return index of value closest to the numeral supplied
-  if ( $lo > $hi ) {
-    if ( $lo > $#$ref ) {
-      return $hi;
+  my $lo = 0;
+  my $hi = $#$ref;
+
+  while ( $lo <= $hi ) {
+    my $mid = int( $lo + ( $hi - $lo ) / 2 );
+    if ( $ref->[$mid] > $value ) {
+      $hi = $mid - 1;
+    } elsif ( $ref->[$mid] < $value ) {
+      $lo = $mid + 1;
     } else {
-      if ( abs( $ref->[$lo] - $value ) >= abs( $ref->[$hi] - $value ) ) {
-        return $hi;
-      } else {
-        return $lo;
-      }
+      return $mid;
     }
   }
 
-  my $mid = int( $lo + ( $hi - $lo ) / 2 );
-  if ( $value < $ref->[$mid] ) {
-    return _rank( $value, $ref, $lo, $mid - 1 );
-  } elsif ( $value > $ref->[$mid] ) {
-    return _rank( $value, $ref, $mid + 1, $hi );
+  # No exact match; return index of value closest to the numeral supplied
+  if ( $lo > $#$ref ) {
+    return $hi;
   } else {
-    return $mid;
+    if ( abs( $ref->[$lo] - $value ) >= abs( $ref->[$hi] - $value ) ) {
+      return $hi;
+    } else {
+      return $lo;
+    }
   }
 }
 
@@ -105,11 +111,11 @@ sub divide {
   my $i    = 0;
 
   die "need at least two numbers\n" if @_ < 1;
-  die "argument index $i not a number\n" if !looks_like_number($n);
+  die "argument index $i not a number\n" if !defined $n or !looks_like_number($n);
 
   my ( $n_coe, $n_exp, $neg_count ) = $self->standard_form($n);
 
-  my $n_idx    = _rank( $n_coe, $self->C->{value}, 0, $#{ $self->C->{value} } );
+  my $n_idx    = $self->_rank( $n_coe, $self->C->{value} );
   my $distance = $self->C->{dist}[$n_idx];
   my $exponent = $n_exp;
 
@@ -120,7 +126,7 @@ sub divide {
     $neg_count++ if $m < 0;
 
     my ( $m_coe, $m_exp, undef ) = $self->standard_form($m);
-    my $m_idx = _rank( $m_coe, $self->C->{value}, 0, $#{ $self->C->{value} } );
+    my $m_idx = $self->_rank( $m_coe, $self->C->{value} );
 
     $distance -= $self->C->{dist}[$m_idx];
     $exponent -= $m_exp;
@@ -131,7 +137,7 @@ sub divide {
     }
   }
 
-  my $d_idx = _rank( $distance, $self->C->{dist}, 0, $#{ $self->C->{dist} } );
+  my $d_idx = $self->_rank( $distance, $self->C->{dist} );
   my $product = $self->C->{value}[$d_idx];
 
   $product *= 10**$exponent;
@@ -146,7 +152,7 @@ sub multiply {
   my $i    = 0;
 
   die "need at least two numbers\n" if @_ < 1;
-  die "argument index $i not a number\n" if !looks_like_number($n);
+  die "argument index $i not a number\n" if !defined $n or !looks_like_number($n);
 
   my ( $n_coe, $n_exp, $neg_count ) = $self->standard_form($n);
 
@@ -159,7 +165,7 @@ sub multiply {
   # One can also do the multiplication on the A and B scales, which is
   # handy if you then need to pull the square root off of D. But this
   # implementation ignores such alternatives.
-  my $n_idx    = _rank( $n_coe, $self->C->{value}, 0, $#{ $self->C->{value} } );
+  my $n_idx    = $self->_rank( $n_coe, $self->C->{value} );
   my $distance = $self->C->{dist}[$n_idx];
   my $exponent = $n_exp;
 
@@ -170,7 +176,7 @@ sub multiply {
     $neg_count++ if $m < 0;
 
     my ( $m_coe, $m_exp, undef ) = $self->standard_form($m);
-    my $m_idx = _rank( $m_coe, $self->C->{value}, 0, $#{ $self->C->{value} } );
+    my $m_idx = $self->_rank( $m_coe, $self->C->{value} );
 
     $distance += $self->C->{dist}[$m_idx];
     $exponent += $m_exp;
@@ -186,7 +192,7 @@ sub multiply {
     }
   }
 
-  my $d_idx = _rank( $distance, $self->C->{dist}, 0, $#{ $self->C->{dist} } );
+  my $d_idx = $self->_rank( $distance, $self->C->{dist} );
   my $product = $self->C->{value}[$d_idx];
 
   $product *= 10**$exponent;
@@ -209,13 +215,13 @@ sub sqrt {
     $n_exp--;
   }
 
-  my $n_idx = _rank( $n_coe, $self->A->{value}, 0, $#{ $self->A->{value} } );
+  my $n_idx = $self->_rank( $n_coe, $self->A->{value} );
 
   # NOTE division is due to A and C scale distances not being calibrated
   # directly with one another
   my $distance = $self->A->{dist}[$n_idx] / 2;
 
-  my $d_idx = _rank( $distance, $self->C->{dist}, 0, $#{ $self->C->{dist} } );
+  my $d_idx = $self->_rank( $distance, $self->C->{dist} );
   my $sqrt = $self->C->{value}[$d_idx];
 
   $sqrt *= 10**( $n_exp / 2 );
@@ -356,6 +362,14 @@ various methods.
 The optional min and max values allow for a normal form between values
 besides the defaults of 1 and 10, though using a minimum value below 1
 may result in unexpected or undefined results, elsewhere.
+
+=item B<_rank> I<value>, I<listofvalues>
+
+Internal use only. Performs a binary search for a given I<value> within
+an array reference of values. B<standard_form> or such should be used to
+ensure that the I<value> lies within the limits of the given list of
+values. The values usually will come from the letter attribute routines
+that tie various numerals to given logarithmic distances.
 
 =back
 

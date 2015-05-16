@@ -22,6 +22,21 @@ isa_ok( $sr, 'Math::SlideRule' );
 
 ########################################################################
 #
+# Internal Stuff - do not use
+
+#               0 1 2  3  4  5   6   7
+my @values = qw(1 3 7 15 31 63 127 255);
+
+is( $sr->_rank( 1,   \@values ), 0 );
+is( $sr->_rank( 3,   \@values ), 1 );
+is( $sr->_rank( 255, \@values ), 7 );
+# nearest if not present in list
+is( $sr->_rank( 6, \@values ), 2 );
+is( $sr->_rank( 4, \@values ), 1 );
+# exactly between might be tricky, given floating point math, etc.
+
+########################################################################
+#
 # Public methods
 
 # subclasses shouldn't normally override this, so tested only here
@@ -73,4 +88,4 @@ is( sprintf( "%.2f", $sr->multiply( 42, 31, 28, 215 ) ),
 is( sprintf( "%.2f", $sr->multiply( 42, -31, -28, -215 ) ),
   -7837905.09, 'chain multiply neg' );
 
-plan tests => 26;
+plan tests => 31;
