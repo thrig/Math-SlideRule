@@ -10,7 +10,7 @@ use Moo;
 use namespace::clean;
 use Scalar::Util qw/looks_like_number/;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 ########################################################################
 #
@@ -248,8 +248,8 @@ sub standard_form {
       $val *= 10;
       $exp--;
     }
-  } elsif ( $val > $max ) {
-    while ( $val > $max ) {
+  } elsif ( $val >= $max ) {
+    while ( $val >= $max ) {
       $val /= 10;
       $exp++;
     }
