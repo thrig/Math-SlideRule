@@ -100,4 +100,4 @@ is( sprintf( "%.2f", $sr->multiply( 42, 31, 28, 215 ) ),
 is( sprintf( "%.2f", $sr->multiply( 42, -31, -28, -215 ) ),
   -7837905.09, 'chain multiply neg' );
 
-plan tests => 38;
+plan tests => 35;
