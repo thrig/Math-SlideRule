@@ -28,7 +28,7 @@ my %params = (
   BUILD_REQUIRES => {},
   TEST_REQUIRES  => {
     'Test::Exception' => 0,
-    'Test::More'      => 0,
+    'Test::Most'      => 0,
     # Mandate the POD tests, contrary to the dagolden no-pod-tests fad. I rank
     # documentation on par with the code, not something one can maybe remember
     # to maybe run the release testing for.
