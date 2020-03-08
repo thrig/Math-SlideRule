@@ -275,7 +275,7 @@ Simulate an analog computer.
   my $sr = Math::SlideRule->new();
 
   # scientific notation breakdown (discards sign)
-  $sr->standard_form(-1234); # [ 1.234, 3, 0 ]
+  $sr->standard_form(-1234); # [ 1.234, 3, 1 ]
 
   # these use the "C/D" scales, or values from 1..10 with some
   # degree of precision
