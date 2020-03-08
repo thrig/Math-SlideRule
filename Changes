@@ -1,6 +1,9 @@
 Revision history for Math-SlideRule. Notable things I remember to put here,
 anyways. The git log may be more informative?
 
+1.08    March 2020
+        Documentation bugfix, perltidy.
+
 1.03    10 does not usually belong to the zeroth exponent. Test::Most.
 
 1.00    May 2015
