@@ -1,9 +1,10 @@
+Build.PL
 Changes
 LICENSE
 MANIFEST
-Makefile.PL
+META.json
+META.yml
 README
-SIGNATURE
 gena
 genc
 lib/Math/SlideRule.pm
